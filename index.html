@@ -216,38 +216,6 @@
         radial-gradient(ellipse 50% 50% at 20% 80%, rgba(201,168,76,0.06) 0%, transparent 60%),
         linear-gradient(135deg, var(--navy-0) 0%, var(--navy-2) 50%, #0a1428 100%);
     }
-    .hero-geo {
-      position: absolute;
-      border: 1px solid rgba(201,168,76,0.08);
-      border-radius: 50%;
-      animation: geoRotate 40s linear infinite;
-    }
-    .hero-geo-1 {
-      width: 800px; height: 800px;
-      right: -200px; top: 50%;
-      transform: translateY(-50%);
-      animation-duration: 60s;
-    }
-    .hero-geo-2 {
-      width: 560px; height: 560px;
-      right: 0px; top: 50%;
-      transform: translateY(-50%);
-      animation-duration: 40s;
-      animation-direction: reverse;
-      border-color: rgba(201,168,76,0.12);
-    }
-    .hero-geo-3 {
-      width: 320px; height: 320px;
-      right: 140px; top: 50%;
-      transform: translateY(-50%);
-      animation-duration: 25s;
-      border-color: rgba(201,168,76,0.18);
-    }
-    @keyframes geoRotate {
-      from { transform: translateY(-50%) rotate(0deg); }
-      to   { transform: translateY(-50%) rotate(360deg); }
-    }
-
     /* Diagonal lines */
     .hero-lines {
       position: absolute; inset: 0;
@@ -261,20 +229,22 @@
         );
     }
 
-    /* Gold orb glow */
-    .hero-orb {
+    /* Globe canvas */
+    #globeCanvas {
       position: absolute;
-      right: 18%; top: 50%;
+      right: -60px; top: 50%;
       transform: translateY(-50%);
-      width: 320px; height: 320px;
-      background: radial-gradient(ellipse, rgba(201,168,76,0.10) 0%, transparent 70%);
-      border-radius: 50%;
-      animation: orbPulse 6s ease-in-out infinite;
+      width: 620px; height: 620px;
+      opacity: 0;
+      animation: globeFadeIn 1.8s ease-out 0.6s forwards;
+      pointer-events: none;
     }
-    @keyframes orbPulse {
-      0%, 100% { opacity: 0.7; transform: translateY(-50%) scale(1); }
-      50%       { opacity: 1; transform: translateY(-50%) scale(1.12); }
+    @keyframes globeFadeIn {
+      from { opacity: 0; transform: translateY(-50%) scale(0.88); }
+      to   { opacity: 1; transform: translateY(-50%) scale(1); }
     }
+    @media (max-width: 1024px) { #globeCanvas { width: 420px; height: 420px; right: -80px; } }
+    @media (max-width: 768px)  { #globeCanvas { width: 300px; height: 300px; right: -100px; opacity: 0.4 !important; animation: none; } }
 
     .hero-content {
       position: relative; z-index: 1;
@@ -969,7 +939,7 @@
       .hero-stats-inner { grid-template-columns: 1fr 1fr; }
       .footer-top { grid-template-columns: 1fr; }
       .footer-bottom { flex-direction: column; gap: 16px; text-align: center; }
-      .hero-geo-1, .hero-geo-2, .hero-geo-3 { display: none; }
+
     }
   </style>
 </head>
@@ -1006,10 +976,7 @@
     <div class="hero-bg">
       <div class="hero-bg-grad"></div>
       <div class="hero-lines"></div>
-      <div class="hero-geo hero-geo-1"></div>
-      <div class="hero-geo hero-geo-2"></div>
-      <div class="hero-geo hero-geo-3"></div>
-      <div class="hero-orb"></div>
+      <canvas id="globeCanvas"></canvas>
     </div>
 
     <div class="container">
@@ -1549,6 +1516,158 @@
         success.style.display = 'block';
       }, 1200);
     }
+
+    // ─── SPINNING GEODESIC GLOBE ──────────────────────────────
+    (function() {
+      const canvas = document.getElementById('globeCanvas');
+      const ctx    = canvas.getContext('2d');
+      const DPR    = Math.min(window.devicePixelRatio || 1, 2);
+
+      function resize() {
+        const r = canvas.getBoundingClientRect();
+        canvas.width  = r.width  * DPR;
+        canvas.height = r.height * DPR;
+        ctx.scale(DPR, DPR);
+      }
+      resize();
+      window.addEventListener('resize', resize);
+
+      // Build icosahedron vertices
+      const phi = (1 + Math.sqrt(5)) / 2;
+      function norm(v) {
+        const l = Math.sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
+        return [v[0]/l, v[1]/l, v[2]/l];
+      }
+
+      const ico = [
+        [-1,phi,0],[1,phi,0],[-1,-phi,0],[1,-phi,0],
+        [0,-1,phi],[0,1,phi],[0,-1,-phi],[0,1,-phi],
+        [phi,0,-1],[phi,0,1],[-phi,0,-1],[-phi,0,1]
+      ].map(norm);
+
+      const icoFaces = [
+        [0,11,5],[0,5,1],[0,1,7],[0,7,10],[0,10,11],
+        [1,5,9],[5,11,4],[11,10,2],[10,7,6],[7,1,8],
+        [3,9,4],[3,4,2],[3,2,6],[3,6,8],[3,8,9],
+        [4,9,5],[2,4,11],[6,2,10],[8,6,7],[9,8,1]
+      ];
+
+      // Subdivide triangles onto unit sphere
+      const midCache = {};
+      let verts = ico.slice();
+
+      function midpoint(a, b) {
+        const key = Math.min(a,b) + '_' + Math.max(a,b);
+        if (midCache[key] !== undefined) return midCache[key];
+        const m = norm([
+          (verts[a][0]+verts[b][0])/2,
+          (verts[a][1]+verts[b][1])/2,
+          (verts[a][2]+verts[b][2])/2
+        ]);
+        midCache[key] = verts.length;
+        verts.push(m);
+        return midCache[key];
+      }
+
+      let faces = icoFaces;
+      const SUBDIVISIONS = 3;  // 3 = ~642 verts, good density
+      for (let s = 0; s < SUBDIVISIONS; s++) {
+        const next = [];
+        for (const [a,b,c] of faces) {
+          const ab = midpoint(a,b), bc = midpoint(b,c), ca = midpoint(c,a);
+          next.push([a,ab,ca],[b,bc,ab],[c,ca,bc],[ab,bc,ca]);
+        }
+        faces = next;
+      }
+
+      // Collect unique edges
+      const edgeSet = new Set();
+      const edges   = [];
+      for (const [a,b,c] of faces) {
+        for (const [i,j] of [[a,b],[b,c],[c,a]]) {
+          const key = Math.min(i,j) + '_' + Math.max(i,j);
+          if (!edgeSet.has(key)) { edgeSet.add(key); edges.push([i,j]); }
+        }
+      }
+
+      // Rotation state
+      let rotY = 0, rotX = 0.3;
+      const SPEED_Y = 0.004, SPEED_X = 0.0008;
+
+      // 3-D → 2-D projection
+      function project(v, cx, cy, radius) {
+        // Rotate around Y axis
+        const cosY = Math.cos(rotY), sinY = Math.sin(rotY);
+        let x = v[0]*cosY - v[2]*sinY;
+        let z = v[0]*sinY + v[2]*cosY;
+        let y = v[1];
+        // Rotate around X axis
+        const cosX = Math.cos(rotX), sinX = Math.sin(rotX);
+        const y2 = y*cosX - z*sinX;
+        const z2 = y*sinX + z*cosX;
+        // Orthographic projection
+        return { sx: cx + x*radius, sy: cy + y2*radius, z: z2 };
+      }
+
+      function draw() {
+        const W  = canvas.width  / DPR;
+        const H  = canvas.height / DPR;
+        const cx = W / 2, cy = H / 2;
+        const R  = Math.min(W, H) * 0.44;
+
+        ctx.clearRect(0, 0, W, H);
+
+        // Precompute projected verts
+        const pv = verts.map(v => project(v, cx, cy, R));
+
+        // Draw edges
+        for (const [a, b] of edges) {
+          const pa = pv[a], pb = pv[b];
+          // Depth: average z, range -1..1 → opacity 0.04..0.55
+          const depth = (pa.z + pb.z) / 2;
+          const t     = (depth + 1) / 2;          // 0=back, 1=front
+          const alpha = 0.04 + t * 0.44;
+          const width = 0.4 + t * 0.5;
+
+          ctx.beginPath();
+          ctx.moveTo(pa.sx, pa.sy);
+          ctx.lineTo(pb.sx, pb.sy);
+          ctx.strokeStyle = `rgba(201,168,76,${alpha.toFixed(3)})`;
+          ctx.lineWidth   = width;
+          ctx.stroke();
+        }
+
+        // Draw dots at vertices
+        for (const p of pv) {
+          const t     = (p.z + 1) / 2;
+          if (t < 0.15) continue;                 // skip deep-back dots
+          const alpha = 0.15 + t * 0.85;
+          const r     = 0.8 + t * 2.0;
+
+          ctx.beginPath();
+          ctx.arc(p.sx, p.sy, r, 0, Math.PI * 2);
+          // Gold glow on front dots
+          if (t > 0.75) {
+            const grd = ctx.createRadialGradient(p.sx, p.sy, 0, p.sx, p.sy, r * 3.5);
+            grd.addColorStop(0, `rgba(240,208,128,${alpha.toFixed(2)})`);
+            grd.addColorStop(1, 'rgba(201,168,76,0)');
+            ctx.fillStyle = grd;
+            ctx.arc(p.sx, p.sy, r * 3.5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(p.sx, p.sy, r, 0, Math.PI * 2);
+          }
+          ctx.fillStyle = `rgba(226,186,90,${alpha.toFixed(2)})`;
+          ctx.fill();
+        }
+
+        rotY += SPEED_Y;
+        rotX += SPEED_X * Math.sin(rotY * 0.3);  // gentle wobble
+        requestAnimationFrame(draw);
+      }
+
+      draw();
+    })();
 
     // Smooth active link highlight
     const sections = document.querySelectorAll('section[id]');
