@@ -216,6 +216,7 @@
         radial-gradient(ellipse 50% 50% at 20% 80%, rgba(201,168,76,0.06) 0%, transparent 60%),
         linear-gradient(135deg, var(--navy-0) 0%, var(--navy-2) 50%, #0a1428 100%);
     }
+
     /* Diagonal lines */
     .hero-lines {
       position: absolute; inset: 0;
@@ -229,26 +230,25 @@
         );
     }
 
-    /* Globe canvas */
-    #globeCanvas {
+    /* Geodesic sphere canvas */
+    .geodesic-canvas {
       position: absolute;
-      right: -60px; top: 50%;
+      right: 40px;
+      top: 50%;
       transform: translateY(-50%);
-      width: 620px; height: 620px;
-      opacity: 0;
-      animation: globeFadeIn 1.8s ease-out 0.6s forwards;
       pointer-events: none;
+      opacity: 0.92;
     }
-    @keyframes globeFadeIn {
-      from { opacity: 0; transform: translateY(-50%) scale(0.88); }
-      to   { opacity: 1; transform: translateY(-50%) scale(1); }
+
+    .hero > .container {
+      margin-left: 0;
+      max-width: 100%;
+      padding-left: 444px;
     }
-    @media (max-width: 1024px) { #globeCanvas { width: 420px; height: 420px; right: -80px; } }
-    @media (max-width: 768px)  { #globeCanvas { width: 300px; height: 300px; right: -100px; opacity: 0.4 !important; animation: none; } }
 
     .hero-content {
       position: relative; z-index: 1;
-      max-width: 700px;
+      max-width: 580px;
     }
 
     .hero-eyebrow {
@@ -293,7 +293,7 @@
       font-size: 17px;
       line-height: 1.75;
       color: var(--text-body);
-      max-width: 520px;
+      max-width: 480px;
       margin-bottom: 52px;
       font-weight: 300;
       opacity: 0;
@@ -364,6 +364,15 @@
       transform: rotate(45deg);
       position: relative;
       top: -1px;
+    }
+    .hero-arrow-down {
+      width: 14px; height: 14px;
+      display: inline-block;
+      border-right: 1.5px solid currentColor;
+      border-bottom: 1.5px solid currentColor;
+      transform: rotate(45deg);
+      position: relative;
+      top: -3px;
     }
 
     /* Stats bar */
@@ -939,7 +948,7 @@
       .hero-stats-inner { grid-template-columns: 1fr 1fr; }
       .footer-top { grid-template-columns: 1fr; }
       .footer-bottom { flex-direction: column; gap: 16px; text-align: center; }
-
+      .geodesic-canvas { display: none; }
     }
   </style>
 </head>
@@ -966,7 +975,7 @@
         <li><a href="#services">Services</a></li>
         <li><a href="#approach">Approach</a></li>
         <li><a href="#testimonials">Clients</a></li>
-        <li><a href="#contact" class="nav-cta">Engage Us</a></li>
+        <li><a href="#contact" class="nav-cta">Contact</a></li>
       </ul>
     </div>
   </nav>
@@ -976,32 +985,35 @@
     <div class="hero-bg">
       <div class="hero-bg-grad"></div>
       <div class="hero-lines"></div>
-      <canvas id="globeCanvas"></canvas>
+      <canvas id="geodesicCanvas" class="geodesic-canvas" width="640" height="640"></canvas>
     </div>
 
     <div class="container">
       <div class="hero-content">
         <div class="hero-eyebrow">
           <div class="hero-eyebrow-line"></div>
-          <span class="hero-eyebrow-text">Elite Management Consulting</span>
+          <span class="hero-eyebrow-text">Global Management Consulting</span>
         </div>
 
         <h1 class="hero-headline">
-          Strategy<br>
-          that <em>moves</em><br>
-          <strong>markets.</strong>
+          Where <em>Insight</em><br>
+          Becomes<br>
+          <em>Advantage</em>
         </h1>
 
         <p class="hero-sub">
-          We advise the world's most ambitious organizations on their defining challenges — from corporate strategy and M&amp;A to digital transformation and operational excellence.
+          We partner with the world's most ambitious organizations to navigate complexity, unlock growth, and build enduring competitive advantage.
         </p>
 
         <div class="hero-actions">
           <a href="#contact" class="btn-primary">
-            <span>Begin the Conversation</span>
+            <span>Begin a Conversation</span>
             <span class="hero-arrow"></span>
           </a>
-          <a href="#services" class="btn-ghost">Our Services</a>
+          <a href="#services" class="btn-ghost">
+            Our Practice Areas
+            <span class="hero-arrow-down"></span>
+          </a>
         </div>
       </div>
     </div>
@@ -1009,8 +1021,8 @@
     <div class="hero-stats">
       <div class="hero-stats-inner">
         <div class="stat">
-          <div class="stat-number">$2.4T</div>
-          <div class="stat-label">Client Value Influenced</div>
+          <div class="stat-number">$4.2B</div>
+          <div class="stat-label">Value Created</div>
         </div>
         <div class="stat">
           <div class="stat-number">340+</div>
@@ -1517,160 +1529,6 @@
       }, 1200);
     }
 
-    // ─── SPINNING GEODESIC GLOBE ──────────────────────────────
-    (function() {
-      const canvas = document.getElementById('globeCanvas');
-      const ctx    = canvas.getContext('2d');
-      const DPR    = Math.min(window.devicePixelRatio || 1, 2);
-      let W = 620, H = 620;
-
-      function resize() {
-        // Use offsetWidth/offsetHeight — reliable after layout
-        W = canvas.offsetWidth  || 620;
-        H = canvas.offsetHeight || 620;
-        canvas.width  = W * DPR;
-        canvas.height = H * DPR;
-        ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-      }
-      // Defer until after first paint so CSS dimensions are applied
-      requestAnimationFrame(() => { resize(); });
-      window.addEventListener('resize', resize);
-
-      // Build icosahedron vertices
-      const phi = (1 + Math.sqrt(5)) / 2;
-      function norm(v) {
-        const l = Math.sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
-        return [v[0]/l, v[1]/l, v[2]/l];
-      }
-
-      const ico = [
-        [-1,phi,0],[1,phi,0],[-1,-phi,0],[1,-phi,0],
-        [0,-1,phi],[0,1,phi],[0,-1,-phi],[0,1,-phi],
-        [phi,0,-1],[phi,0,1],[-phi,0,-1],[-phi,0,1]
-      ].map(norm);
-
-      const icoFaces = [
-        [0,11,5],[0,5,1],[0,1,7],[0,7,10],[0,10,11],
-        [1,5,9],[5,11,4],[11,10,2],[10,7,6],[7,1,8],
-        [3,9,4],[3,4,2],[3,2,6],[3,6,8],[3,8,9],
-        [4,9,5],[2,4,11],[6,2,10],[8,6,7],[9,8,1]
-      ];
-
-      // Subdivide triangles onto unit sphere
-      const midCache = {};
-      let verts = ico.slice();
-
-      function midpoint(a, b) {
-        const key = Math.min(a,b) + '_' + Math.max(a,b);
-        if (midCache[key] !== undefined) return midCache[key];
-        const m = norm([
-          (verts[a][0]+verts[b][0])/2,
-          (verts[a][1]+verts[b][1])/2,
-          (verts[a][2]+verts[b][2])/2
-        ]);
-        midCache[key] = verts.length;
-        verts.push(m);
-        return midCache[key];
-      }
-
-      let faces = icoFaces;
-      const SUBDIVISIONS = 3;  // 3 = ~642 verts, good density
-      for (let s = 0; s < SUBDIVISIONS; s++) {
-        const next = [];
-        for (const [a,b,c] of faces) {
-          const ab = midpoint(a,b), bc = midpoint(b,c), ca = midpoint(c,a);
-          next.push([a,ab,ca],[b,bc,ab],[c,ca,bc],[ab,bc,ca]);
-        }
-        faces = next;
-      }
-
-      // Collect unique edges
-      const edgeSet = new Set();
-      const edges   = [];
-      for (const [a,b,c] of faces) {
-        for (const [i,j] of [[a,b],[b,c],[c,a]]) {
-          const key = Math.min(i,j) + '_' + Math.max(i,j);
-          if (!edgeSet.has(key)) { edgeSet.add(key); edges.push([i,j]); }
-        }
-      }
-
-      // Rotation state
-      let rotY = 0, rotX = 0.3;
-      const SPEED_Y = 0.004, SPEED_X = 0.0008;
-
-      // 3-D → 2-D projection
-      function project(v, cx, cy, radius) {
-        // Rotate around Y axis
-        const cosY = Math.cos(rotY), sinY = Math.sin(rotY);
-        let x = v[0]*cosY - v[2]*sinY;
-        let z = v[0]*sinY + v[2]*cosY;
-        let y = v[1];
-        // Rotate around X axis
-        const cosX = Math.cos(rotX), sinX = Math.sin(rotX);
-        const y2 = y*cosX - z*sinX;
-        const z2 = y*sinX + z*cosX;
-        // Orthographic projection
-        return { sx: cx + x*radius, sy: cy + y2*radius, z: z2 };
-      }
-
-      function draw() {
-        const cx = W / 2, cy = H / 2;
-        const R  = Math.min(W, H) * 0.44;
-
-        ctx.clearRect(0, 0, W * DPR, H * DPR);
-
-        // Precompute projected verts
-        const pv = verts.map(v => project(v, cx, cy, R));
-
-        // Draw edges
-        for (const [a, b] of edges) {
-          const pa = pv[a], pb = pv[b];
-          // Depth: average z, range -1..1 → opacity 0.04..0.55
-          const depth = (pa.z + pb.z) / 2;
-          const t     = (depth + 1) / 2;          // 0=back, 1=front
-          const alpha = 0.04 + t * 0.44;
-          const width = 0.4 + t * 0.5;
-
-          ctx.beginPath();
-          ctx.moveTo(pa.sx, pa.sy);
-          ctx.lineTo(pb.sx, pb.sy);
-          ctx.strokeStyle = `rgba(201,168,76,${alpha.toFixed(3)})`;
-          ctx.lineWidth   = width;
-          ctx.stroke();
-        }
-
-        // Draw dots at vertices
-        for (const p of pv) {
-          const t     = (p.z + 1) / 2;
-          if (t < 0.15) continue;                 // skip deep-back dots
-          const alpha = 0.15 + t * 0.85;
-          const r     = 0.8 + t * 2.0;
-
-          ctx.beginPath();
-          ctx.arc(p.sx, p.sy, r, 0, Math.PI * 2);
-          // Gold glow on front dots
-          if (t > 0.75) {
-            const grd = ctx.createRadialGradient(p.sx, p.sy, 0, p.sx, p.sy, r * 3.5);
-            grd.addColorStop(0, `rgba(240,208,128,${alpha.toFixed(2)})`);
-            grd.addColorStop(1, 'rgba(201,168,76,0)');
-            ctx.fillStyle = grd;
-            ctx.arc(p.sx, p.sy, r * 3.5, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.beginPath();
-            ctx.arc(p.sx, p.sy, r, 0, Math.PI * 2);
-          }
-          ctx.fillStyle = `rgba(226,186,90,${alpha.toFixed(2)})`;
-          ctx.fill();
-        }
-
-        rotY += SPEED_Y;
-        rotX += SPEED_X * Math.sin(rotY * 0.3);  // gentle wobble
-        requestAnimationFrame(draw);
-      }
-
-      draw();
-    })();
-
     // Smooth active link highlight
     const sections = document.querySelectorAll('section[id]');
     const navLinks = document.querySelectorAll('.nav-links a:not(.nav-cta)');
@@ -1684,6 +1542,115 @@
           ? 'var(--gold-hi)' : '';
       });
     }, { passive: true });
+
+    // ─── GEODESIC SPHERE ──────────────────────────────────────
+    (function() {
+      const canvas = document.getElementById('geodesicCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const S = 640;
+
+      function normalize(v) {
+        const l = Math.sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
+        return [v[0]/l, v[1]/l, v[2]/l];
+      }
+
+      function getMid(a, b, verts, cache) {
+        const key = Math.min(a,b) + '_' + Math.max(a,b);
+        if (cache[key] !== undefined) return cache[key];
+        const idx = verts.length;
+        verts.push(normalize([
+          (verts[a][0]+verts[b][0])/2,
+          (verts[a][1]+verts[b][1])/2,
+          (verts[a][2]+verts[b][2])/2
+        ]));
+        cache[key] = idx;
+        return idx;
+      }
+
+      const t = (1 + Math.sqrt(5)) / 2;
+      let verts = [
+        [-1,t,0],[1,t,0],[-1,-t,0],[1,-t,0],
+        [0,-1,t],[0,1,t],[0,-1,-t],[0,1,-t],
+        [t,0,-1],[t,0,1],[-t,0,-1],[-t,0,1]
+      ].map(normalize);
+
+      let faces = [
+        [0,11,5],[0,5,1],[0,1,7],[0,7,10],[0,10,11],
+        [1,5,9],[5,11,4],[11,10,2],[10,7,6],[7,1,8],
+        [3,9,4],[3,4,2],[3,2,6],[3,6,8],[3,8,9],
+        [4,9,5],[2,4,11],[6,2,10],[8,6,7],[9,8,1]
+      ];
+
+      for (let s = 0; s < 2; s++) {
+        const newFaces = [], cache = {};
+        for (const [a,b,c] of faces) {
+          const ab = getMid(a,b,verts,cache);
+          const bc = getMid(b,c,verts,cache);
+          const ca = getMid(c,a,verts,cache);
+          newFaces.push([a,ab,ca],[b,bc,ab],[c,ca,bc],[ab,bc,ca]);
+        }
+        faces = newFaces;
+      }
+
+      // Collect unique edges
+      const edgeSet = new Set();
+      const edges = [];
+      for (const [a,b,c] of faces) {
+        for (const [i,j] of [[a,b],[b,c],[c,a]]) {
+          const key = Math.min(i,j)+'_'+Math.max(i,j);
+          if (!edgeSet.has(key)) { edgeSet.add(key); edges.push([i,j]); }
+        }
+      }
+
+      const R = 248; // sphere radius in px
+      let angle = 0;
+      const tiltX = 0.18;
+
+      function project(v) {
+        // Rotate Y
+        const x1 = v[0]*Math.cos(angle) - v[2]*Math.sin(angle);
+        const z1 = v[0]*Math.sin(angle) + v[2]*Math.cos(angle);
+        // Rotate X (slight tilt)
+        const y2 = v[1]*Math.cos(tiltX) - z1*Math.sin(tiltX);
+        const z2 = v[1]*Math.sin(tiltX) + z1*Math.cos(tiltX);
+        return { x: S/2 + x1*R, y: S/2 + y2*R, z: z2 };
+      }
+
+      function draw() {
+        ctx.clearRect(0, 0, S, S);
+        angle += 0.004;
+
+        const proj = verts.map(project);
+
+        // Draw edges
+        for (const [i,j] of edges) {
+          const p1 = proj[i], p2 = proj[j];
+          const depth = (p1.z + p2.z) / 2;
+          const alpha = Math.max(0.04, (depth + 1) * 0.22);
+          ctx.beginPath();
+          ctx.moveTo(p1.x, p1.y);
+          ctx.lineTo(p2.x, p2.y);
+          ctx.strokeStyle = `rgba(201,168,76,${alpha})`;
+          ctx.lineWidth = 0.8;
+          ctx.stroke();
+        }
+
+        // Draw vertex dots
+        for (const p of proj) {
+          const alpha = Math.max(0.08, (p.z + 1) * 0.45);
+          const r = Math.max(0.8, (p.z + 1) * 1.8);
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, r, 0, Math.PI*2);
+          ctx.fillStyle = `rgba(226,186,90,${alpha})`;
+          ctx.fill();
+        }
+
+        requestAnimationFrame(draw);
+      }
+
+      draw();
+    })();
   </script>
 </body>
 </html>
